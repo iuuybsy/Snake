@@ -1,6 +1,4 @@
-def print_hi(name):
-    print(f'Hi, {name}')
+from game import Snake
 
-
-if __name__ == '__main__':
-    print_hi('PyCharm')
+game = Snake()
+game.play()
