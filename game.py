@@ -55,13 +55,15 @@ class Snake:
         self.move_direction = Direction.RIGHT
 
         # set move speed
-        self.update_time: float = 0.2
+        self.update_time: float = 0.1
         self.last_move_time = time.time()
+
+        # game finish sign
+        self.is_game_finish = False
 
     def play(self):
         while True:
             self.background_render()
-            self.snake_body_render()
             self.apple_render()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -83,10 +85,27 @@ class Snake:
                         self.move_direction = Direction.LEFT if event.key == pygame.K_a \
                             else Direction.RIGHT
             self.move()
+            self.snake_body_render()
+            if self.is_game_finish:
+                time.sleep(1)
+                self.refresh()
+                continue
             while time.time() - self.last_move_time < self.update_time:
                 continue
             self.last_move_time = time.time()
             pygame.display.update()
+
+    def refresh(self):
+        self.snake_body.clear()
+        self.snake_body.append([14, 14])
+
+        self.apple: list[int] = [random.randint(0, WIDTH - 1), random.randint(0, HEIGHT - 1)]
+        while self.apple in self.snake_body:
+            self.apple = [random.randint(0, WIDTH - 1), random.randint(0, HEIGHT - 1)]
+
+        self.move_direction = Direction.RIGHT
+        self.last_move_time = time.time()
+        self.is_game_finish = False
 
     def move(self):
         dir_x = DIRECTIONS[self.move_direction.value][0]
@@ -98,6 +117,17 @@ class Snake:
             self.snake_body[i][1] = self.snake_body[i - 1][1]
         self.snake_body[0][0] += dir_x
         self.snake_body[0][1] += dit_y
+
+        if self.snake_body[0][0] < 0 or self.snake_body[0][0] >= WIDTH or \
+                self.snake_body[0][1] < 0 or self.snake_body[0][1] >= HEIGHT:
+            self.is_game_finish = True
+            return
+        elif len(self.snake_body) > 3:
+            for i in range(1, len(self.snake_body)):
+                if (self.snake_body[0][0] == self.snake_body[i][0] and
+                        self.snake_body[0][1] == self.snake_body[i][1]):
+                    self.is_game_finish = True
+                    return
         if self.snake_body[0][0] == self.apple[0] and self.snake_body[0][1] == self.apple[1]:
             self.snake_body.append([tail_x, tail_y])
             self.apple = [random.randint(0, WIDTH - 1), random.randint(0, HEIGHT - 1)]
