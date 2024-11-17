@@ -2,11 +2,12 @@ import pygame
 import random
 import time
 from enum import Enum
+from stack import Stack
 
 # display constant
 UNIT: int = 20
-WIDTH: int = 30
-HEIGHT = 30
+WIDTH: int = 40
+HEIGHT = 40
 
 SCREEN_WIDTH: int = WIDTH * UNIT
 SCREEN_HEIGHT: int = HEIGHT * UNIT
@@ -27,12 +28,29 @@ DIRECTIONS = [UP, DOWN, LEFT, RIGHT]
 
 MOVE_COMMAND_KEYS: set = {pygame.K_w, pygame.K_a, pygame.K_s, pygame.K_d}
 
+# start point
+X_START: int = 4
+Y_START: int = 4
 
+# interval time
+INTERVAL_TIME: float = 0.1
+
+# maximum path cost constant
+INF: int = WIDTH * HEIGHT * 2 + 1
+
+
+# direction enum class
 class Direction(Enum):
     UP = 0
     DOWN = 1
     LEFT = 2
     RIGHT = 3
+
+
+class Node:
+    def __init__(self, cost: int, direction: Direction):
+        self.cost: int = cost
+        self.parent_direction: Direction = direction
 
 
 class Snake:
@@ -44,7 +62,7 @@ class Snake:
         pygame.display.set_caption("Snake")
 
         # set snake body
-        self.snake_body: list[list[int]] = [[14, 14]]
+        self.snake_body: list[list[int]] = [[X_START, Y_START]]
 
         # set apple position
         self.apple: list[int] = [random.randint(0, WIDTH - 1), random.randint(0, HEIGHT - 1)]
@@ -54,12 +72,134 @@ class Snake:
         # set move direction
         self.move_direction = Direction.RIGHT
 
-        # set move speed
-        self.update_time: float = 0.1
         self.last_move_time = time.time()
 
-        # game finish sign
         self.is_game_finish = False
+
+    def auto_play(self):
+        while True:
+            self.background_render()
+            self.apple_render()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    return
+            self.find_best_path()
+            self.move()
+            self.snake_body_render()
+            if self.is_game_finish:
+                time.sleep(1)
+                self.refresh()
+                continue
+            while time.time() - self.last_move_time < INTERVAL_TIME:
+                continue
+            self.last_move_time = time.time()
+            pygame.display.update()
+
+    def find_best_path(self):
+        distance_to_apple = \
+            [[Node(INF, Direction.RIGHT) for _ in range(HEIGHT)] for _ in range(WIDTH)]
+        distance_to_tail = \
+            [[Node(INF, Direction.RIGHT) for _ in range(HEIGHT)] for _ in range(WIDTH)]
+
+        apple_reachable: list[list[bool]] = [[True for _ in range(HEIGHT)] for _ in range(WIDTH)]
+        tail_reachable: list[list[bool]] = [[True for _ in range(HEIGHT)] for _ in range(WIDTH)]
+
+        for i in range(1, len(self.snake_body)):
+            apple_reachable[self.snake_body[i][0]][self.snake_body[i][1]] = False
+            tail_reachable[self.snake_body[i][0]][self.snake_body[i][1]] = False
+
+        self.bfs(self.apple, distance_to_apple, apple_reachable)
+        self.bfs(self.snake_body[-1], distance_to_tail, tail_reachable)
+
+        if distance_to_apple[self.snake_body[0][0]][self.snake_body[0][1]].cost < INF:
+            self.move_direction = (
+                distance_to_apple[self.snake_body[0][0]][self.snake_body[0][1]].parent_direction)
+
+        elif distance_to_tail[self.snake_body[0][0]][self.snake_body[0][1]].cost < INF:
+            self.move_direction = (
+                distance_to_tail[self.snake_body[0][0]][self.snake_body[0][1]].parent_direction)
+        else:
+            x_deepest, y_deepest = self.deepest_point()
+            if x_deepest == self.snake_body[0][0] and y_deepest == self.snake_body[0][1]:
+                self.wander()
+            distance_to_deep = \
+                [[Node(INF, Direction.RIGHT) for _ in range(HEIGHT)] for _ in range(WIDTH)]
+            deep_reachable: list[list[bool]] = \
+                [[True for _ in range(HEIGHT)] for _ in range(WIDTH)]
+            for i in range(1, len(self.snake_body)):
+                deep_reachable[self.snake_body[i][0]][self.snake_body[i][1]] = False
+            for i in range(0, WIDTH):
+                deep_reachable[i][0] = False
+                deep_reachable[i][HEIGHT - 1] = False
+            for j in range(0, HEIGHT):
+                deep_reachable[0][j] = False
+                deep_reachable[WIDTH - 1][j] = False
+
+            self.bfs(self.snake_body[0], distance_to_deep, deep_reachable)
+            self.move_direction = (
+                distance_to_tail[self.snake_body[0][0]][self.snake_body[0][1]].parent_direction)
+
+    def deepest_point(self) -> tuple[int, int]:
+        distance_to_head = \
+            [[Node(INF, Direction.RIGHT) for _ in range(HEIGHT)] for _ in range(WIDTH)]
+        head_reachable: list[list[bool]] = \
+            [[True for _ in range(HEIGHT)] for _ in range(WIDTH)]
+        for i in range(1, len(self.snake_body)):
+            head_reachable[self.snake_body[i][0]][self.snake_body[i][1]] = False
+        for i in range(0, WIDTH):
+            head_reachable[i][0] = False
+            head_reachable[i][HEIGHT - 1] = False
+        for j in range(0, HEIGHT):
+            head_reachable[0][j] = False
+            head_reachable[WIDTH - 1][j] = False
+        self.bfs(self.snake_body[0], distance_to_head, head_reachable)
+        max_distance = 0
+        x_max, y_max = self.snake_body[0][0], self.snake_body[0][1]
+        for i in range(0, WIDTH):
+            for j in range(0, HEIGHT):
+                if not head_reachable[i][j]:
+                    continue
+                if distance_to_head[i][j].cost > max_distance:
+                    max_distance = distance_to_head[i][j].cost
+                    x_max, y_max = i, j
+        return x_max, y_max
+
+    def wander(self):
+        random_direction = [Direction.UP, Direction.DOWN, Direction.LEFT, Direction.RIGHT]
+        self.move_direction = random.choice(random_direction)
+
+    @classmethod
+    def bfs(cls, start_point: list[int], rec: list[list[Node]],
+            reachable: list[list[bool]]):
+        rec[start_point[0]][start_point[1]].cost = 0
+        stk = Stack()
+        stk.push(start_point)
+        while not stk.is_empty():
+            cur_point = stk.pop()
+            reachable[cur_point[0]][cur_point[1]] = False
+            for direction in DIRECTIONS:
+                next_point = [cur_point[0] + direction[0], cur_point[1] + direction[1]]
+                if next_point[0] < 0 or next_point[0] >= WIDTH:
+                    continue
+                elif next_point[1] < 0 or next_point[1] >= HEIGHT:
+                    continue
+                if not reachable[next_point[0]][next_point[1]]:
+                    continue
+                val1 = rec[next_point[0]][next_point[1]].cost
+                val2 = rec[cur_point[0]][cur_point[1]].cost + 1
+                cur_cost = min(val1, val2)
+                if cur_cost < rec[next_point[0]][next_point[1]].cost:
+                    rec[next_point[0]][next_point[1]].cost = cur_cost
+                    if direction == UP:
+                        rec[next_point[0]][next_point[1]].parent_direction = Direction.DOWN
+                    elif direction == DOWN:
+                        rec[next_point[0]][next_point[1]].parent_direction = Direction.UP
+                    elif direction == LEFT:
+                        rec[next_point[0]][next_point[1]].parent_direction = Direction.RIGHT
+                    elif direction == RIGHT:
+                        rec[next_point[0]][next_point[1]].parent_direction = Direction.LEFT
+                stk.push(next_point)
 
     def play(self):
         while True:
@@ -90,14 +230,14 @@ class Snake:
                 time.sleep(1)
                 self.refresh()
                 continue
-            while time.time() - self.last_move_time < self.update_time:
+            while time.time() - self.last_move_time < INTERVAL_TIME:
                 continue
             self.last_move_time = time.time()
             pygame.display.update()
 
     def refresh(self):
         self.snake_body.clear()
-        self.snake_body.append([14, 14])
+        self.snake_body.append([X_START, Y_START])
 
         self.apple: list[int] = [random.randint(0, WIDTH - 1), random.randint(0, HEIGHT - 1)]
         while self.apple in self.snake_body:
@@ -157,4 +297,3 @@ class Snake:
         rect_y = self.apple[1] * UNIT
         rect = pygame.Rect(rect_x, rect_y, UNIT, UNIT)
         pygame.draw.rect(self.screen, RED, rect)
-
