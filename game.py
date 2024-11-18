@@ -5,7 +5,7 @@ from enum import Enum
 from stack import Stack
 
 # display constant
-UNIT: int = 20
+UNIT: int = 21
 WIDTH: int = 40
 HEIGHT = 40
 
@@ -17,6 +17,7 @@ DEEP_GREY: tuple[int, int, int] = (40, 40, 40)
 LIGHT_GREY: tuple[int, int, int] = (60, 60, 60)
 WHITE: tuple[int, int, int] = (255, 255, 255)
 RED: tuple[int, int, int] = (255, 0, 0)
+GREEN = (0, 255, 0)
 
 # direction constant
 UP = [0, -1]
@@ -286,11 +287,20 @@ class Snake:
                     pygame.draw.rect(self.screen, DEEP_GREY, rect)
 
     def snake_body_render(self):
-        for body_part in self.snake_body:
-            rect_x = body_part[0] * UNIT
-            rect_y = body_part[1] * UNIT
+        for i in range(len(self.snake_body)):
+            rect_x = self.snake_body[i][0] * UNIT
+            rect_y = self.snake_body[i][1] * UNIT
             rect = pygame.Rect(rect_x, rect_y, UNIT, UNIT)
-            pygame.draw.rect(self.screen, WHITE, rect)
+            if i == 0:
+                pygame.draw.rect(self.screen, GREEN, rect)
+            else:
+                pygame.draw.rect(self.screen, WHITE, rect)
+                x_start = self.snake_body[i][0] * UNIT + UNIT // 2
+                y_start = self.snake_body[i][1] * UNIT + UNIT // 2
+                x_end = self.snake_body[i - 1][0] * UNIT + UNIT // 2
+                y_end = self.snake_body[i - 1][1] * UNIT + UNIT // 2
+                pygame.draw.line(self.screen, GREEN,
+                                 (x_start, y_start), (x_end, y_end), 5)
 
     def apple_render(self):
         rect_x = self.apple[0] * UNIT
