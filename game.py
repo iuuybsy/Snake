@@ -110,6 +110,9 @@ class Snake:
             apple_reachable[self.snake_body[i][0]][self.snake_body[i][1]] = False
             tail_reachable[self.snake_body[i][0]][self.snake_body[i][1]] = False
 
+        if self.direct_move(apple_reachable):
+            return
+
         self.bfs(self.apple, distance_to_apple, apple_reachable)
         self.bfs(self.snake_body[-1], distance_to_tail, tail_reachable)
 
@@ -140,6 +143,64 @@ class Snake:
             self.bfs(self.snake_body[0], distance_to_deep, deep_reachable)
             self.move_direction = (
                 distance_to_tail[self.snake_body[0][0]][self.snake_body[0][1]].parent_direction)
+
+    def direct_move(self, apple_reachable) -> bool:
+        x_step = 1 if self.apple[0] >= self.snake_body[0][0] else -1
+        y_step = 1 if self.apple[1] >= self.snake_body[0][1] else -1
+
+        x_head = self.snake_body[0][0]
+        y_head = self.snake_body[0][1]
+
+        can_vertical_move: bool = True
+        can_horizontal_move: bool = True
+
+        if x_head != self.apple[0]:
+            while x_head != self.apple[0]:
+                if not apple_reachable[x_head][y_head]:
+                    can_horizontal_move = False
+                    break
+                x_head += x_step
+
+            while y_head != self.apple[1]:
+                if not apple_reachable[x_head][y_head]:
+                    can_vertical_move = False
+                    break
+                y_head += y_step
+
+            if can_vertical_move and can_horizontal_move:
+                if x_step == 1:
+                    self.move_direction = Direction.RIGHT
+                else:
+                    self.move_direction = Direction.LEFT
+                return True
+
+        x_head = self.snake_body[0][0]
+        y_head = self.snake_body[0][1]
+
+        can_vertical_move: bool = True
+        can_horizontal_move: bool = True
+
+        if y_head != self.apple[1]:
+            while y_head != self.apple[1]:
+                if not apple_reachable[x_head][y_head]:
+                    can_vertical_move = False
+                    break
+                y_head += y_step
+
+            while x_head != self.apple[0]:
+                if not apple_reachable[x_head][y_head]:
+                    can_horizontal_move = False
+                    break
+                x_head += x_step
+
+            if can_vertical_move and can_horizontal_move:
+                if y_step == 1:
+                    self.move_direction = Direction.DOWN
+                else:
+                    self.move_direction = Direction.UP
+                return True
+
+        return False
 
     def deepest_point(self) -> tuple[int, int]:
         distance_to_head = \
